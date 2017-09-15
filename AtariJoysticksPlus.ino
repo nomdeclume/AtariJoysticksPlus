@@ -173,14 +173,14 @@ const int fireBReadThreshold = (analogReadMaxValue * 5)/12;
 const int minAnalogInitialValue = 6 * (analogReadMaxValue/8);
 const int maxAnalogInitialValue = 7 * (analogReadMaxValue/8);
 
-// Start updating smoothedAnalog only after paddle button has been pushed. This way, transiant behaviour during paddle plugging is discarded.
+// Start updating smoothedAnalog only after paddle button has been pushed. This way, transient behavior during paddle plugging is discarded.
 const float smoothedAnalogNoUpdate = -1;
 
 // Set the initial smoothed value to somewhere in between initial max and min.
 const float smoothedAnalogInitialValue = (minAnalogInitialValue + maxAnalogInitialValue)/2.0;
 const float smoothingPastWeight = 0.99;
-const float smoothingMaxBuffer = 1.0;
-const float smoothingMinBuffer = 10.0;
+const float smoothingMaxBuffer = 1.0;  // eliminate "dancing" on the right
+const float smoothingMinBuffer = 12.0; // eliminate "dancing" on the left
 
 const int joystickCount = 2;
 
