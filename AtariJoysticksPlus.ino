@@ -180,7 +180,7 @@ const float smoothedAnalogNoUpdate = -1;
 const float smoothedAnalogInitialValue = (minAnalogInitialValue + maxAnalogInitialValue)/2.0;
 const float smoothingPastWeight = 0.99;
 const float smoothingMaxBuffer = 1.0;
-const float smoothingMinBuffer = 1.0;
+const float smoothingMinBuffer = 10.0;
 
 const int joystickCount = 2;
 
