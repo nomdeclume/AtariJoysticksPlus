@@ -14,15 +14,27 @@
 
 
 /* D-SUB9 pin number, wire color, function
-1	White	Up
-2	Blue	Down
-3	Green	Left/Paddle A button/Driving controller LSB
-4	Brown	Right/Paddle B button/Driving controller MSB
-5	Red	Paddle B potentiometer
-6	Orange	Joystick button
-7	Yellow	+5V (needed for paddles)
-8	Black	Ground
-9	Purple	Paddle A potentiometer
+1    White    Up
+2    Blue     Down
+3    Green    Left/Paddle A button/Driving controller LSB
+4    Brown    Right/Paddle B button/Driving controller MSB
+5    Red      Paddle B potentiometer
+6    Orange   Joystick button
+7    Yellow   +5V (needed for paddles)
+8    Black    Ground
+9    Purple   Paddle A potentiometer
+
+I was not aware of the above wire coloring scheme when starting this project, and do not currently have all the above colors anyway. So, my choice of colors for wiring from the D-SUB9 to the Arduino is the following (change this to keep track of your wires):
+
++++ 1    White
++++ 2    Blue
++++ 3    Green
++++ 4    Yellow
++++ 5    Orange
++++ 6    Red
++++ 7    Light green
++++ 8    Black
++++ 9    Brown
 
 Pressing a button/moving the joystick in a direction shorts the relevant pin with ground. Otherwise, the pin is floating.
 
@@ -38,17 +50,6 @@ on another.
 
 There are tutorials on how to clean Atari paddles. Maybe I should do this...
 
-My choice of colors:
-
-1	White
-2	Blue
-3	Green
-4	Yellow
-5	Orange
-6	Red
-7	Light green
-8	Black
-9 Brown
 
 */
 
