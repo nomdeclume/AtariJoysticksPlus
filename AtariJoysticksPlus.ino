@@ -180,10 +180,12 @@ uint8_t downVal;
 
 bool firstTimeFlag;
 
-Joystick_ Joystick[joystickCount] = {
-    Joystick_(0x03, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false),
-    Joystick_(0x04, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false),
-};
+Joystick_* Joystick[joystickCount];
+
+//Joystick_ Joystick[joystickCount] = {
+//    Joystick_(0x03, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false),
+//    Joystick_(0x04, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false),
+//};
 
 void setup() {
 
@@ -205,10 +207,10 @@ void setup() {
     joyFuncPins[1][paddleB_pot]  = -1;  // not connected
     joyFuncPins[1][fireB_pullup]  = -1; // not connected
 
-    uint8_t i, joystickIndex;
+    uint8_t i, joystickIndex;    
 
     // Set pin modes and initial analog min/max values
-
+    
     for ( joystickIndex = 0; joystickIndex < joystickCount; joystickIndex++ )
     {
         // first take care of digital
@@ -253,15 +255,20 @@ void setup() {
             prevJoyFuncVals[joystickIndex][i] = 0;
         }
 
+        // TODO: tried to make joystick count more flexible with the following code, but this did not work. Fix and incorporate.
+        // Initialize joystick object
+        Joystick[joystickIndex] =
+          new Joystick_(0x03+joystickIndex, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false);
+        
         // set min and max joystick axis values
-        Joystick[joystickIndex].setXAxisRange(minAxisValue, maxAxisValue);
-        Joystick[joystickIndex].setYAxisRange(minAxisValue, maxAxisValue);
+        Joystick[joystickIndex]->setXAxisRange(minAxisValue, maxAxisValue);
+        Joystick[joystickIndex]->setYAxisRange(minAxisValue, maxAxisValue);
 
         // set RX range
-        Joystick[joystickIndex].setRxAxisRange(0, clicksInFullRotation - 1 );
+        Joystick[joystickIndex]->setRxAxisRange(0, clicksInFullRotation - 1 );
 
         // start the joystick
-        Joystick[joystickIndex].begin(/*initAutoSendState*/ false);
+        Joystick[joystickIndex]->begin(/*initAutoSendState*/ false);
 
     }
 
@@ -501,12 +508,12 @@ void writeJoystickVals( uint8_t joystickIndex, int *currJoyFuncVals, int *minAna
         updateAnalogMaxMin(paddleB_pot, paddleB_button, currJoyFuncVals, minAnalogJoystickVals, maxAnalogJoystickVals);
 
         // check buttons
-        Joystick[joystickIndex].setButton(0, currJoyFuncVals[paddleA_button]);
-        Joystick[joystickIndex].setButton(1, currJoyFuncVals[paddleB_button]);
+        Joystick[joystickIndex]->setButton(0, currJoyFuncVals[paddleA_button]);
+        Joystick[joystickIndex]->setButton(1, currJoyFuncVals[paddleB_button]);
 
         // set axis values
-        Joystick[joystickIndex].setXAxis( calculateAnalogAxisValue( paddleA_pot, paddleA_button, currJoyFuncVals, minAnalogJoystickVals, maxAnalogJoystickVals) );
-        Joystick[joystickIndex].setYAxis( calculateAnalogAxisValue( paddleB_pot, paddleB_button, currJoyFuncVals, minAnalogJoystickVals, maxAnalogJoystickVals) );
+        Joystick[joystickIndex]->setXAxis( calculateAnalogAxisValue( paddleA_pot, paddleA_button, currJoyFuncVals, minAnalogJoystickVals, maxAnalogJoystickVals) );
+        Joystick[joystickIndex]->setYAxis( calculateAnalogAxisValue( paddleB_pot, paddleB_button, currJoyFuncVals, minAnalogJoystickVals, maxAnalogJoystickVals) );
 
     }
     else // no paddles connected, so either a joystick or a driving controller
@@ -524,16 +531,16 @@ void writeJoystickVals( uint8_t joystickIndex, int *currJoyFuncVals, int *minAna
         }
 
         // fireA button
-        Joystick[joystickIndex].setButton(0, currJoyFuncVals[fireA]);
+        Joystick[joystickIndex]->setButton(0, currJoyFuncVals[fireA]);
 
         // fireB button
-        Joystick[joystickIndex].setButton(1, currJoyFuncVals[fireB]);
+        Joystick[joystickIndex]->setButton(1, currJoyFuncVals[fireB]);
 
         if ( isDriving[joystickIndex] == true )
         {
             // start by centering the joystick, for good measure
-            Joystick[joystickIndex].setXAxis(midAxisValue);
-            Joystick[joystickIndex].setYAxis(midAxisValue);
+            Joystick[joystickIndex]->setXAxis(midAxisValue);
+            Joystick[joystickIndex]->setYAxis(midAxisValue);
 
             currentGray = currJoyFuncVals[driving_LSB] + 2 * currJoyFuncVals[driving_MSB];
 
@@ -543,26 +550,26 @@ void writeJoystickVals( uint8_t joystickIndex, int *currJoyFuncVals, int *minAna
             {
                 drivingPos[joystickIndex] = (drivingPos[joystickIndex] + increment) % clicksInFullRotation;
 
-                Joystick[joystickIndex].setRxAxis( drivingPos[joystickIndex] );
+                Joystick[joystickIndex]->setRxAxis( drivingPos[joystickIndex] );
             }
 
 
             // for debugging, remove!
             if ( !currJoyFuncVals[up] && !currJoyFuncVals[down] )
             {
-                Joystick[joystickIndex].setYAxis(midAxisValue);
+                Joystick[joystickIndex]->setYAxis(midAxisValue);
             }
             else if ( currJoyFuncVals[up] && !currJoyFuncVals[down] )
             {
-                Joystick[joystickIndex].setYAxis(minAxisValue);
+                Joystick[joystickIndex]->setYAxis(minAxisValue);
             }
             else if ( !currJoyFuncVals[up] && currJoyFuncVals[down] )
             {
-                Joystick[joystickIndex].setYAxis(maxAxisValue);
+                Joystick[joystickIndex]->setYAxis(maxAxisValue);
             }
             else // currJoyFuncVals[up] && currJoyFuncVals[down], if we got here, there is a hardware problem!
             {
-                Joystick[joystickIndex].setYAxis(100);
+                Joystick[joystickIndex]->setYAxis(100);
             }
 
 
@@ -570,48 +577,48 @@ void writeJoystickVals( uint8_t joystickIndex, int *currJoyFuncVals, int *minAna
         else // it is a joystick
         {
             // start by nulling Rx, for good measure
-            Joystick[joystickIndex].setRxAxis(0);
+            Joystick[joystickIndex]->setRxAxis(0);
 
 
             // left/right
             if ( !currJoyFuncVals[left] && !currJoyFuncVals[right] )
             {
-                Joystick[joystickIndex].setXAxis(midAxisValue);
+                Joystick[joystickIndex]->setXAxis(midAxisValue);
             }
             else if ( currJoyFuncVals[left] && !currJoyFuncVals[right] )
             {
-                Joystick[joystickIndex].setXAxis(minAxisValue);
+                Joystick[joystickIndex]->setXAxis(minAxisValue);
             }
             else if ( !currJoyFuncVals[left] && currJoyFuncVals[right] )
             {
-                Joystick[joystickIndex].setXAxis(maxAxisValue);
+                Joystick[joystickIndex]->setXAxis(maxAxisValue);
             }
             else // currJoyFuncVals[left] && currJoyFuncVals[right], we can't get here!
             {
-                Joystick[joystickIndex].setXAxis(100);
+                Joystick[joystickIndex]->setXAxis(100);
             }
 
             // up/down
             if ( !currJoyFuncVals[up] && !currJoyFuncVals[down] )
             {
-                Joystick[joystickIndex].setYAxis(midAxisValue);
+                Joystick[joystickIndex]->setYAxis(midAxisValue);
             }
             else if ( currJoyFuncVals[up] && !currJoyFuncVals[down] )
             {
-                Joystick[joystickIndex].setYAxis(minAxisValue);
+                Joystick[joystickIndex]->setYAxis(minAxisValue);
             }
             else if ( !currJoyFuncVals[up] && currJoyFuncVals[down] )
             {
-                Joystick[joystickIndex].setYAxis(maxAxisValue);
+                Joystick[joystickIndex]->setYAxis(maxAxisValue);
             }
             else // currJoyFuncVals[up] && currJoyFuncVals[down], if we got here, there is a hardware problem!
             {
-                Joystick[joystickIndex].setYAxis(100);
+                Joystick[joystickIndex]->setYAxis(100);
             }
         }
     }
 
-    Joystick[joystickIndex].sendState();
+    Joystick[joystickIndex]->sendState();
 
 }
 
