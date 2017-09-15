@@ -182,11 +182,6 @@ bool firstTimeFlag;
 
 Joystick_* Joystick[joystickCount];
 
-//Joystick_ Joystick[joystickCount] = {
-//    Joystick_(0x03, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false),
-//    Joystick_(0x04, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false),
-//};
-
 void setup() {
 
     joyFuncPins[0][fireA]  = 4;
@@ -255,7 +250,6 @@ void setup() {
             prevJoyFuncVals[joystickIndex][i] = 0;
         }
 
-        // TODO: tried to make joystick count more flexible with the following code, but this did not work. Fix and incorporate.
         // Initialize joystick object
         Joystick[joystickIndex] =
           new Joystick_(0x03+joystickIndex, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false);
