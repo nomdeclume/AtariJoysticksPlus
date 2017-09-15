@@ -1,3 +1,4 @@
+// TODO: change updateMinMax to apply a smoothing filter, that will work only work when button is depressed, and irrespective of a change in value 
 #include <Joystick.h>
 // Joystick library taken from https://github.com/MHeironimus/ArduinoJoystickLibrary
 
@@ -153,6 +154,7 @@ We start by checking if the paddles are connected.
 */
 
 const int analogReadThreshold = analogReadMaxValue/4;
+const int analogJumpThreshold = analogReadMaxValue/2;
 const int fireBReadThreshold = (analogReadMaxValue * 5)/12;
 
 const int joystickCount = 2;
@@ -354,16 +356,23 @@ bool readJoystickVals( uint8_t joystickIndex, int *prevJoyFuncVals, int *currJoy
         // Read digital tap A as well
         currJoyFuncVals[paddleA_pot] = paddlePotRead( joyFuncPins[paddleA_pot] );
 
-        // If we are above the change threshold, move current to prev
 
         for ( i = joyDigitalFuncCount; i < joyDigitalFuncCount + joyAnalogFuncCount; i++ )
         {
+            // Check if we are above the change threshold
             if ( (currJoyFuncVals[i] - prevJoyFuncVals[i]) > analogReadTolerance ||
                     (prevJoyFuncVals[i] - currJoyFuncVals[i]) > analogReadTolerance )
             {
-                prevJoyFuncVals[i] = currJoyFuncVals[i];
+                // Check that we are above the nominal min value.
+                // If not, then this was typically a momentary "jump" while the paddle was moved
+                // (infinite resistance), and should thus be discarded.
+                if ( currJoyFuncVals[i] >= analogJumpThreshold )
+                {
+                    // move current to prev
+                    prevJoyFuncVals[i] = currJoyFuncVals[i];
 
-                changedFlag = true;
+                    changedFlag = true;
+                }
             }
         }
     }
