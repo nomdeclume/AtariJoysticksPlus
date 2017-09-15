@@ -1,4 +1,3 @@
-// TODO: change updateMinMax to apply a smoothing filter, that will work only work when button is depressed, and irrespective of a change in value 
 #include <Joystick.h>
 // Joystick library taken from https://github.com/MHeironimus/ArduinoJoystickLibrary
 
@@ -154,9 +153,34 @@ We start by checking if the paddles are connected.
 
 */
 
+/* To calibrate a paddle:
+1) Press and release the fire button.
+2) Move the paddle to an extreme position (full left/right), and stay there for at least three seconds.
+3) Repeat for the second extreme position.
+*/
+
 const int analogReadThreshold = analogReadMaxValue/4;
 const int analogJumpThreshold = analogReadMaxValue/2;
 const int fireBReadThreshold = (analogReadMaxValue * 5)/12;
+
+// Nominal analog max should be analogReadMaxValue.
+// Nominal analog min should be analogReadMaxValue/2.
+// True max should be very close to analogReadMaxValue (R1 ~= 0, also for old paddles)
+// True min might be noticeably less than analogReadMaxValue/2 (my paddles have R1 max equal to 900K Ohm and 760K Ohm).
+// So, set initial max to 7/8 analogReadMaxValue,
+// and set initial min to 6/8 analogReadMaxValue.
+
+const int minAnalogInitialValue = 6 * (analogReadMaxValue/8);
+const int maxAnalogInitialValue = 7 * (analogReadMaxValue/8);
+
+// Start updating smoothedAnalog only after paddle button has been pushed. This way, transiant behaviour during paddle plugging is discarded.
+const float smoothedAnalogNoUpdate = -1;
+
+// Set the initial smoothed value to somewhere in between initial max and min.
+const float smoothedAnalogInitialValue = (minAnalogInitialValue + maxAnalogInitialValue)/2.0;
+const float smoothingPastWeight = 0.99;
+const float smoothingMaxBuffer = 1.0;
+const float smoothingMinBuffer = 1.0;
 
 const int joystickCount = 2;
 
@@ -168,6 +192,7 @@ unsigned int drivingPos[joystickCount];
 
 int minAnalogJoystickVals[joystickCount][joyAnalogFuncCount];
 int maxAnalogJoystickVals[joystickCount][joyAnalogFuncCount];
+float smoothedAnalogJoystickVals[joystickCount][joyAnalogFuncCount];
 
 int joyFuncPins[joystickCount][joyTotalFuncCount];
 
@@ -202,10 +227,10 @@ void setup() {
     joyFuncPins[1][paddleB_pot]  = -1;  // not connected
     joyFuncPins[1][fireB_pullup]  = -1; // not connected
 
-    uint8_t i, joystickIndex;    
+    uint8_t i, joystickIndex;
 
     // Set pin modes and initial analog min/max values
-    
+
     for ( joystickIndex = 0; joystickIndex < joystickCount; joystickIndex++ )
     {
         // first take care of digital
@@ -230,15 +255,12 @@ void setup() {
 
 
             // Take care of initial max/min values.
-            // Nominal max should be analogReadMaxValue.
-            // Nominal min should be analogReadMaxValue/2.
-            // True max should be very close to analogReadMaxValue (R1 ~= 0, also for old paddles)
-            // True min might be noticeably less than analogReadMaxValue/2 (my paddles have R1 max equal to 900K Ohm and 760K Ohm).
-            // So, set initial max to 7/8 analogReadMaxValue,
-            // and set initial min to 6/8 analogReadMaxValue.
 
-            maxAnalogJoystickVals[joystickIndex][i - joyDigitalFuncCount] = 7 * (analogReadMaxValue/8);
-            minAnalogJoystickVals[joystickIndex][i - joyDigitalFuncCount] = 6 * (analogReadMaxValue/8);
+            maxAnalogJoystickVals[joystickIndex][i - joyDigitalFuncCount] = maxAnalogInitialValue;
+            minAnalogJoystickVals[joystickIndex][i - joyDigitalFuncCount] = minAnalogInitialValue;
+
+            // Smoothing should not be updated until paddle button has been pressed.
+            smoothedAnalogJoystickVals[joystickIndex][i - joyDigitalFuncCount] = smoothedAnalogNoUpdate;
 
         }
 
@@ -252,8 +274,8 @@ void setup() {
 
         // Initialize joystick object
         Joystick[joystickIndex] =
-          new Joystick_(0x03+joystickIndex, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false);
-        
+            new Joystick_(0x03+joystickIndex, JOYSTICK_TYPE_JOYSTICK, /*buttonCount*/ 2, /*hatSwitchCount*/  0, /*includeXAxis*/ true, /*includeYAxis*/ true, /*includeZAxis*/ false, /*includeRxAxis*/ true, false, false, false, false, false, false, false);
+
         // set min and max joystick axis values
         Joystick[joystickIndex]->setXAxisRange(minAxisValue, maxAxisValue);
         Joystick[joystickIndex]->setYAxisRange(minAxisValue, maxAxisValue);
@@ -361,20 +383,26 @@ bool readJoystickVals( uint8_t joystickIndex, int *prevJoyFuncVals, int *currJoy
 
         for ( i = joyDigitalFuncCount; i < joyDigitalFuncCount + joyAnalogFuncCount; i++ )
         {
+            // First, check that we are above the nominal min value.
+            // If not, then this was typically a momentary "jump" while the paddle was moved
+            // (infinite resistance), and should thus be discarded.
+            if ( currJoyFuncVals[i] < analogJumpThreshold )
+            {
+                continue;
+            }
+
+            // update the max/min values
+            updateAnalogMaxMin(currJoyFuncVals[i-joyDigitalFuncCount + paddleA_button], currJoyFuncVals[paddleA_button] || currJoyFuncVals[paddleB_button], currJoyFuncVals[i], smoothedAnalogJoystickVals[joystickIndex][i-joyDigitalFuncCount], minAnalogJoystickVals[joystickIndex][i-joyDigitalFuncCount], maxAnalogJoystickVals[joystickIndex][i-joyDigitalFuncCount]);
+
+
             // Check if we are above the change threshold
             if ( (currJoyFuncVals[i] - prevJoyFuncVals[i]) > analogReadTolerance ||
                     (prevJoyFuncVals[i] - currJoyFuncVals[i]) > analogReadTolerance )
             {
-                // Check that we are above the nominal min value.
-                // If not, then this was typically a momentary "jump" while the paddle was moved
-                // (infinite resistance), and should thus be discarded.
-                if ( currJoyFuncVals[i] >= analogJumpThreshold )
-                {
-                    // move current to prev
-                    prevJoyFuncVals[i] = currJoyFuncVals[i];
+                // move current to prev
+                prevJoyFuncVals[i] = currJoyFuncVals[i];
 
-                    changedFlag = true;
-                }
+                changedFlag = true;
             }
         }
     }
@@ -435,22 +463,40 @@ bool readJoystickVals( uint8_t joystickIndex, int *prevJoyFuncVals, int *currJoy
     return changedFlag;
 }
 
-void updateAnalogMaxMin( int paddle_pot, int paddle_button, int *currJoyFuncVals, int *minAnalogJoystickVals, int *maxAnalogJoystickVals)
+void updateAnalogMaxMin( int buttonVal, int eitherButtonPressed, int currAnalogVal, float &smoothedAnalogJoystickVal, int &minAnalogJoystickVal, int &maxAnalogJoystickVal)
 {
-    // We only update the values if the fire button is pressed
-    if ( currJoyFuncVals[paddle_button] )
+    int smoothedMaxInt;
+    int smoothedMinInt;
+
+    if ( smoothedAnalogJoystickVal == smoothedAnalogNoUpdate && buttonVal == true )
     {
-        if ( currJoyFuncVals[paddle_pot] < minAnalogJoystickVals[paddle_pot - joyDigitalFuncCount] )
-        {
-            minAnalogJoystickVals[paddle_pot - joyDigitalFuncCount] = currJoyFuncVals[paddle_pot];
-        }
-
-        if ( currJoyFuncVals[paddle_pot] > maxAnalogJoystickVals[paddle_pot - joyDigitalFuncCount] )
-        {
-            maxAnalogJoystickVals[paddle_pot - joyDigitalFuncCount] = currJoyFuncVals[paddle_pot];
-        }
-
+        smoothedAnalogJoystickVal = smoothedAnalogInitialValue;
     }
+
+// Don't update if either button is pressed, or updating has yet to start.
+
+    if ( eitherButtonPressed == true || smoothedAnalogJoystickVal == smoothedAnalogNoUpdate )
+    {
+        return;
+    }
+
+    // Update the smoothing value
+    smoothedAnalogJoystickVal = smoothingPastWeight*(smoothedAnalogJoystickVal+ (1-smoothingPastWeight)*currAnalogVal);
+
+    smoothedMaxInt = (int) (smoothedAnalogJoystickVal - smoothingMaxBuffer);
+    smoothedMinInt = (int) (smoothedAnalogJoystickVal + smoothingMinBuffer);
+
+
+    if ( smoothedMinInt < minAnalogJoystickVal )
+    {
+        minAnalogJoystickVal = smoothedMinInt;
+    }
+
+    if ( smoothedMaxInt > maxAnalogJoystickVal )
+    {
+        maxAnalogJoystickVal = smoothedMaxInt;
+    }
+
 }
 
 float potTransform( int potVal )
@@ -497,10 +543,6 @@ void writeJoystickVals( uint8_t joystickIndex, int *currJoyFuncVals, int *minAna
     // first, check for paddles
     if ( currJoyFuncVals[paddleA_pot] > analogReadThreshold || currJoyFuncVals[paddleB_pot] > analogReadThreshold )
     {
-        // update the max/min values
-        updateAnalogMaxMin(paddleA_pot, paddleA_button, currJoyFuncVals, minAnalogJoystickVals, maxAnalogJoystickVals);
-        updateAnalogMaxMin(paddleB_pot, paddleB_button, currJoyFuncVals, minAnalogJoystickVals, maxAnalogJoystickVals);
-
         // check buttons
         Joystick[joystickIndex]->setButton(0, currJoyFuncVals[paddleA_button]);
         Joystick[joystickIndex]->setButton(1, currJoyFuncVals[paddleB_button]);
