@@ -13,18 +13,16 @@
 
 
 /* D-SUB9 pin number, wire color, function
-1    White    Up
-2    Blue     Down
-3    Green    Left/Paddle A button/Driving controller LSB
-4    Brown    Right/Paddle B button/Driving controller MSB
+1    White    Up/Driving controller MSB
+2    Blue     Down/Driving controller LSB
+3    Green    Left/Paddle A button
+4    Brown    Right/Paddle B button
 5    Red      Paddle B potentiometer
 6    Orange   Joystick button
 7    Yellow   +5V (needed for paddles)
 8    Black    Ground
 9    Purple   Paddle A potentiometer
-
 I was not aware of the above wire coloring scheme when starting this project, and do not currently have all the above colors anyway. So, my choice of colors for wiring from the D-SUB9 to the Arduino is the following (change this to keep track of your wires):
-
 +++ 1    White
 +++ 2    Blue
 +++ 3    Green
@@ -34,28 +32,113 @@ I was not aware of the above wire coloring scheme when starting this project, an
 +++ 7    Light green
 +++ 8    Black
 +++ 9    Brown
-
 Pressing a button/moving the joystick in a direction shorts the relevant pin with ground. Otherwise, the pin is floating.
-
 Button B:
 On the EPYX 500XJ (by Konix) this is pin 9
 On the Wico Three Way Deluxe and Super Three way deluxe, turning the switch to F1 and pressing the base button shorts pins 5 and 9
-
-
 Paddle potentiometer is rated as 1M Ohm, linear. One end is connected to the
 +5V power supply (pin 7). Full right is 0 Ohm. Full left should nominally be
 1 Mega-Ohm, but I have measured 760K Ohm on one paddle and 900K Ohm
 on another.
-
 There are tutorials on how to clean Atari paddles. Maybe I should do this...
 
+=============================================
+Truglodite's comments below:
+Requires 3x resistors, 2x male DB-9 plugs, a pro-micro, bits of wire, and some Atari controllers.
+Works with Atari joysticks (1 or 2), paddles (1 pair only... ~10 games exist that need 3-4 paddles), or driving controllers (1 or 2).
+If doing DIY paddles, use 10k pots and resistors for cleaner signals (1M resistors for stock paddles).
+Failed to compile in PIO... compiles fine in Arduino 1.8.9 (add library manually)
+Most emulators are going to need the analog deadband set to zero to prevent "hole in the middle" behavior.
+Windows 10 see's this as 2 joysticks with no needed changes (add usbhid.quirks=0x2341:0x8036:0x40 to retropie /boot/cmdline.txt)
+Modify VID/PID so no usb quirks are needed... C:\Users\Kevin\AppData\Local\Arduino15\packages\arduino\hardware\avr\1.8.2\boards.txt
+change the 3 lines:
+  micro.build.mcu=atmega32u4
+  micro.build.f_cpu=16000000L
+  micro.build.vid=0x2341
+  micro.build.pid=0x8037
+  micro.build.usb_product="Arduino Micro"
+  micro.build.board=AVR_MICRO
+  micro.build.core=arduino
+  micro.build.variant=micro
+  micro.build.extra_flags={build.usb_flags}
+to:
+  ...
+  micro.build.vid=0x8282
+  micro.build.pid=0x3201
+  micro.build.usb_product="Atari Retro Joystick Adapter"
+  ...
+This makes the Micro show up as a Mojo Retro Adapter named "Atari Retro..."
 
+*Note this makes driving controllers not work with stella!!! Instead, use the stelladaptor PID/VID.
+*This allows stella to properly recognize the output of the driving controller.
+*Instead, use this in boards.txt to make the micro appear as a stelladaptor:
+* micro.build.vid=0x04D8
+* micro.build.pid=0xBEEF
+* micro.build.usb_product="Stelladaptor Atari 2600-to-USB Interface"
+*Note stelladaptors only have 1 port. Use the usbhid quirks for linux to maybe see it as 2 joysticks?
+
+Pinouts =====================================
+All digital pins use internal pullups (short to ground = active)
+Arduino Pin   DB9 port-pin          Function  
+0             1-2                   p1-down / p1-drive LSB
+1             1-1                   p1-up /  p1-drive MSB
+2             1-4                   p1-right / p2-paddle button
+3             1-3                   p1-left / p1-paddle button
+4             1-6                   p1-joy button
+A3            1-9                   p1-paddle (A)
+A2            1-5                   p2-paddle (B)
+5V            1-7                   paddle supply
+gnd           1-8                   common ground
+5             2-2                   p2-down / p2-drive LSB
+6             2-1                   p2-up / p2-drive MSB
+7             2-4                   p2-right
+8             2-3                   p2-left
+9             2-6                   p2-joy button
+-             2-9                   -
+-             2-5                   -
+-             2-7                   -
+gnd           2-8                   common gnd
+10            -                     S1 (device dependent output)
+==================================================
+
+Overall schematic for the added resistors (uses original Atari equipment, simple wiring and all) ===============
++5V --- poti A (1M)  ---  |--- 1M --- GND
+                          |
+                          |--- 1M  --- D10
+                          |
+                          A5
+                         
++5V --- poti B (1M)  ---  |--- 1M --- GND
+                          |
+                          A4
+
+...just the stuff you solder inside the adapter box ======================================
+
+(DB9 1-9) ---|--- R1 --- GND
+             |
+             |--- R2 --- D10
+             |
+             |
+             A5
+                        
+(DB9 1-5) ---|--- R3 --- GND
+             |
+             A4
+
+*R1=R2=R3=RpotiA=RpotiB, original poti's are ~1Mohm, CW to zero.
+*1Mohm is noisy with arduino inputs. Therefore it is better to use 10k poti's and resistors if possible.
 */
-
+/*
 const int minAxisValue = -127; // left/up
 const int maxAxisValue = 127;  // right/down
 const int midAxisValue = 0;
 const int clicksInFullRotation = 16; // driving controller has 4 * 4 = 16 state changes in a 360 degree turn
+*/
+const int minAxisValue = 0; // left/up
+const int maxAxisValue = 255;  // right/down
+const int midAxisValue = 127;
+const int clicksInFullRotation = 16; // driving controller has 4 * 4 = 16 state changes in a 360 degree turn
+const int drivingMaxYvalue = 192; //trug... for stelladapter driving output (0x7F-0x00-0xFF-0xCO...)
 
 // digital must come before analog!
 enum joyFunc {
@@ -93,15 +176,13 @@ const int analogReadMaxValue = 1023;
 
 const int analogReadTolerance = 1; // if |curr - prev| <= tolerance, treat as no change
 // spec gives +- 2LSB as absolute accuracy
-const int millisecondsBetweenReads = 2; // Since the 1M Ohm resistor is larger than the maximum suggested resistance going into the A2D converter, some delay is needed so that the position of one paddle does not interfere with the value read from the other one.
+// Trug: No delay needed, since I'm using 10kohm potis and resistors.
+// const int millisecondsBetweenReads = 2; // Since the 1M Ohm resistor is larger than the maximum suggested resistance going into the A2D converter, some delay is needed so that the position of one paddle does not interfere with the value read from the other one.
 /*
-
 Let us first talk about how to read the paddle position. This is done by using a voltage divider.
-
 The voltage divider is +5V --- R1 = potentiometer (paddle) ---|--- R2 --- GND
                                                               |
                                                      tap for analog read
-
 The nominal range of Atari paddles is 0 to 1M Ohm, linear.
 So, to get the best precision, it turns out we should take R2 = 1M Ohm,
 the maximum resistance of the potentiometer.
@@ -109,48 +190,37 @@ If the paddle is not connected, the voltage measured should be 0.
 If the paddle is connected, the voltage range should nominally be
 between +5V (R1 = 0) and +2.5v (R1 = 1M Ohm).
 We take the threshold to decide if the paddle is connected to be +1.25V = 5V/4
-
 The above schematic was a simplified introduction to paddles. In fact, to get both the paddles and fire button B working (pin 9 shorted to ground/pins 5 and 9 shorted), we use the following schematic:
-
 +5V --- R1A  --- joystick pin 9 --- |--- R2A --- GND
      (paddle A)                     |
                                     |--- R3  --- S1 = +5V/not connected (pin joyFuncPins[?][fireB_pullup] on Arduino)
                                     |
                                analog tap A (pin joyFuncPins[?][paddleA_pot] on Arduino)
-
-
 +5V --- R1B  --- joystick pin 5 --- |--- R2B --- GND
      (paddle B)                     |
                                analog tap B (pin joyFuncPins[?][paddleB_pot] on Arduino)
-
-
 If the paddles are connected, both R1A and R2A are nominally between 0 and 1M Ohm. Otherwise, both R1A and R2A are infinity.
-
 We start by checking if the paddles are connected.
 * S1 is set to "not connected" (the corresponding pin is set to "input").
 * If analog tap B is above the threshold of +1.25V (explained above), we know that the paddles are connected.
   + We make use of the reading just taken of analog tap B.
   + We then read analog tap A.
 * Otherwise, the paddles are not connected.
-  + We set S1 to +5V by setting	 the corresponding pin to "output" and "high". The value of R3 is, also, 1M Ohm.
+  + We set S1 to +5V by setting   the corresponding pin to "output" and "high". The value of R3 is, also, 1M Ohm.
   + We read joystick up/down/left/right, as well as button A.
   + We make another read of analog tap A.
     # If button B is off, the read should be 5/2 = 2.5 V.
     # If button B is on, by shorting pin 9 to ground, then the analog read should be 0 V.
     # If button B is on, by shorting pins 5 and 9, then the analog read should be 5/3 = 1.66 V.
   + Thus, we set the threshold to be 5 * (5/12) = 2.08 V. If we are above the threshold, button B is off. Otherwise, button B is on.
-
 */
 
 /* The driving controller uses the up and down joystick pins to encode direction via a Gray code. Let up be the MSB and down be LSB.
                               v---------------
    A left rotation is         00->01->11->10-|
-
    There are 4 such length 4 cycles in a 360 degree turn of the controller. So, we have a resolution of 360/16 = 22.5 degrees.
-
    If we read the input and see that both up and down directions are on, then we have clearly connected a driving controller.
    Conversely, if we read the input and see that either the left or right directions are on, then we have clearly connected a joystick.
-
 */
 
 /* To calibrate a paddle:
@@ -195,14 +265,14 @@ int maxAnalogJoystickVals[joystickCount][joyAnalogFuncCount];
 float smoothedAnalogJoystickVals[joystickCount][joyAnalogFuncCount];
 
 int joyFuncPins[joystickCount][joyTotalFuncCount];
-
+/*
 uint8_t fireAVal;
 uint8_t fireBVal;
 uint8_t leftVal;
 uint8_t rightVal;
 uint8_t upVal;
 uint8_t downVal;
-
+*/
 bool firstTimeFlag;
 
 Joystick_* Joystick[joystickCount];
@@ -214,8 +284,8 @@ void setup() {
     joyFuncPins[0][right] = 2;
     joyFuncPins[0][up]    = 1;
     joyFuncPins[0][down]  = 0;
-    joyFuncPins[0][paddleA_pot]  = A5;
-    joyFuncPins[0][paddleB_pot]  = A4;
+    joyFuncPins[0][paddleA_pot]  = A3;
+    joyFuncPins[0][paddleB_pot]  = A2;
     joyFuncPins[0][fireB_pullup]  = 10;
 
     joyFuncPins[1][fireA]  = 9;
@@ -278,6 +348,7 @@ void setup() {
 
         // set min and max joystick axis values
         Joystick[joystickIndex]->setXAxisRange(minAxisValue, maxAxisValue);
+        //Joystick[joystickIndex]->setYAxisRange(minAxisValue, maxAxisValue);
         Joystick[joystickIndex]->setYAxisRange(minAxisValue, maxAxisValue);
 
         // set RX range
@@ -586,7 +657,7 @@ void writeJoystickVals( uint8_t joystickIndex, int *currJoyFuncVals, int *minAna
             {
                 drivingPos[joystickIndex] = (drivingPos[joystickIndex] + increment) % clicksInFullRotation;
 
-                Joystick[joystickIndex]->setRxAxis( drivingPos[joystickIndex] );
+                //Joystick[joystickIndex]->setRxAxis( drivingPos[joystickIndex] ); //trug, attempt to simulate stelladaptor
             }
 
 
@@ -605,7 +676,7 @@ void writeJoystickVals( uint8_t joystickIndex, int *currJoyFuncVals, int *minAna
             }
             else // currJoyFuncVals[up] && currJoyFuncVals[down], if we got here, there is a hardware problem!
             {
-                Joystick[joystickIndex]->setYAxis(100);
+                Joystick[joystickIndex]->setYAxis(drivingMaxYvalue);  //trug, stelladapter
             }
 
 
@@ -665,7 +736,7 @@ int myAnalogRead( int pin )
     // TODO: For setting the input pin beforehand, I should look at http://www.gammon.com.au/adc
 
     analogRead(pin);
-    delay(millisecondsBetweenReads);
+    // delay(millisecondsBetweenReads); //trug no delay needed with 10kohm paddles and resistors.
     return analogRead(pin);
 }
 
@@ -688,4 +759,3 @@ void loop()
 
     firstTimeFlag = false;
 }
-
